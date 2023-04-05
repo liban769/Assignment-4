@@ -1,0 +1,164 @@
+---
+title: "Assignment 4"
+author: "13"
+format: pdf
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+rm(list=ls())
+require(dplyr)
+require(lubridate)
+require(tidyverse)
+require(quantmod)
+```
+
+```{r}
+df <- read.csv("https://raw.githubusercontent.com/uit-sok-1005-v23/uit-sok-1005-v23.github.io/main/storedata.csv")
+```
+
+```{r}
+df$Order_Date <- as.Date(df$Order_Date)
+```
+
+```{r}
+df$Order_Year <- format(df$Order_Date, "%Y")
+df$Order_Month <- format(df$Order_Date, "%m")
+df$Order_Day <- format(df$Order_Date, "%d")
+```
+
+```{r}
+T1 <- df %>% 
+  filter(Order_Year == "2017", Order_Month >= "10", Customer_Segment %in% c("Corporate", "Consumer"), Region %in% c("Region 1", "Region 3")) %>% 
+  group_by(Region, Order_Month, Customer_Segment) %>% 
+  summarise(total_Sales = sum(Sales)) 
+```
+
+```{r}
+figure <- df %>% 
+   filter(Order_Year %in% c("2017", "2018", "2019"), 
+         Region %in% c("Region 1", "Region 13")) %>% 
+  group_by(Region, Order_Month) %>% 
+  summarise(total_Sales = sum(Sales)) %>% 
+  ggplot(aes(x = Order_Month, y = total_Sales)) +
+  geom_col() + 
+  theme_minimal() +
+  xlab("Month") + 
+  ylab("Total Sales") +
+  facet_wrap(~ Region)
+
+figure
+```
+
+```{r}
+T2 <- df %>% 
+   filter(Order_Year %in% c("2017", "2018", "2019"), 
+         Region %in% c("Region 1", "Region 13")) %>% 
+  group_by(Region, Order_Month) %>% 
+  summarise(total_Sales = sum(Sales)) 
+T2 <- pivot_wider(T2,names_from = Region, values_from = total_Sales)
+```
+
+```{r}
+T3 <- df %>% 
+  filter(Order_Year==2017,!Region%in%c("Region 3","Region 5","Region 8"))%>%
+  group_by(Product_Category, Customer_Segment) %>% 
+  summarize(average_Profit = mean(Profit))
+```
+
+```{r}
+getSymbols("XOM", src = "yahoo")
+xom_df <- as.data.frame(XOM)
+xom_df <- tibble::rownames_to_column(xom_df, var = "Date")
+xom_df <- xom_df %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  filter(Date >= "2010-01-04" & Date < "2022-12-01")
+```
+
+```{r}
+xom_df <- xom_df %>% 
+  mutate(year_month = format(Date, "%Y-%m")) %>%
+  group_by(year_month) %>% 
+  mutate(exxon.WeightedMean = weighted.mean(XOM.Close))
+```
+
+```{r}
+getSymbols("DCOILBRENTEU", src = "FRED")
+crudeoil_df <- as.data.frame(DCOILBRENTEU)
+crudeoil_df <- tibble::rownames_to_column(crudeoil_df, var = "Date")
+crudeoil_df <- crudeoil_df %>% 
+  mutate(Date = as.Date(Date)) %>%  
+  filter(Date >= "2010-01-04" & Date < "2022-12-01")
+```
+
+```{r}
+exxon <- xom_df %>% 
+  select(year_month,exxon.WeightedMean) %>% 
+  mutate(year_month = ym(year_month)) %>% 
+  distinct()
+```
+
+```{r}
+crudeoil_df <- na.omit(crudeoil_df)
+crudeoil_df <- crudeoil_df  %>% 
+  mutate(year_month = format(Date, "%Y-%m")) %>%
+  group_by(year_month) %>% 
+  mutate(oil.Mean = mean(DCOILBRENTEU))
+```
+
+```{r}
+oil <- crudeoil_df %>% 
+  select(year_month,oil.Mean) %>%
+  mutate(year_month = ym(year_month)) %>% 
+  distinct()
+```
+
+```{r}
+ggplot() + 
+  geom_line(data = oil , aes(x=year_month,y=oil.Mean, col = "oil")) +
+  geom_line(data =exxon,aes(x=year_month,y=exxon.WeightedMean,col="exxon"))+ 
+  xlab("Date") + ylab("Price USD") + ggtitle("Oil and Exxon") +   
+  theme_minimal()
+```
+
+|     |
+|-----|
+|     |
+|     |
+
+|     |
+|-----|
+
+|     |
+|-----|
+|     |
+|     |
+
+```{r}
+oil_exxon <- cbind(oil,exxon)
+```
+
+```{r}
+lm(data=oil_exxon, exxon.WeightedMean ~ oil.Mean)
+```
